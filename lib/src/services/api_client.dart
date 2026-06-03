@@ -9,6 +9,8 @@ import '../models/polygon_point.dart';
 class ApiClient {
   ApiClient({required this.baseUrl, this.token});
 
+  static const Duration _requestTimeout = Duration(seconds: 8);
+
   final String baseUrl;
   String? token;
 
@@ -27,36 +29,44 @@ class ApiClient {
   }
 
   Future<Map<String, dynamic>> register(Map<String, dynamic> payload) async {
-    final response = await http.post(
-      Uri.parse('$baseUrl/api/v1/auth/register'),
-      headers: _headers(),
-      body: jsonEncode(payload),
-    );
+    final response = await http
+        .post(
+          Uri.parse('$baseUrl/api/v1/auth/register'),
+          headers: _headers(),
+          body: jsonEncode(payload),
+        )
+        .timeout(_requestTimeout);
     return _decode(response);
   }
 
   Future<Map<String, dynamic>> login(String email, String password) async {
-    final response = await http.post(
-      Uri.parse('$baseUrl/api/v1/auth/login'),
-      headers: _headers(),
-      body: jsonEncode({'email': email, 'password': password}),
-    );
+    final response = await http
+        .post(
+          Uri.parse('$baseUrl/api/v1/auth/login'),
+          headers: _headers(),
+          body: jsonEncode({'email': email, 'password': password}),
+        )
+        .timeout(_requestTimeout);
     return _decode(response);
   }
 
   Future<Map<String, dynamic>> me() async {
-    final response = await http.get(
-      Uri.parse('$baseUrl/api/v1/me'),
-      headers: _headers(json: false),
-    );
+    final response = await http
+        .get(
+          Uri.parse('$baseUrl/api/v1/me'),
+          headers: _headers(json: false),
+        )
+        .timeout(_requestTimeout);
     return _decode(response);
   }
 
   Future<List<ApplicationSummary>> fetchApplications() async {
-    final response = await http.get(
-      Uri.parse('$baseUrl/api/v1/applications'),
-      headers: _headers(json: false),
-    );
+    final response = await http
+        .get(
+          Uri.parse('$baseUrl/api/v1/applications'),
+          headers: _headers(json: false),
+        )
+        .timeout(_requestTimeout);
     final data = _decode(response);
     return (data['applications'] as List<dynamic>? ?? [])
         .map((item) =>
@@ -65,10 +75,12 @@ class ApiClient {
   }
 
   Future<ApplicationSummary> fetchApplication(int id) async {
-    final response = await http.get(
-      Uri.parse('$baseUrl/api/v1/applications/$id'),
-      headers: _headers(json: false),
-    );
+    final response = await http
+        .get(
+          Uri.parse('$baseUrl/api/v1/applications/$id'),
+          headers: _headers(json: false),
+        )
+        .timeout(_requestTimeout);
     final data = _decode(response);
     return ApplicationSummary.fromJson(
         Map<String, dynamic>.from(data['application'] as Map));
@@ -83,19 +95,22 @@ class ApiClient {
     String? mappedAddress,
     String? barangayName,
   }) async {
-    final response = await http.post(
-      Uri.parse('$baseUrl/api/v1/applications'),
-      headers: _headers(idempotencyKey: idempotencyKey),
-      body: jsonEncode({
-        'project_name': projectName,
-        'building_type': buildingType,
-        'project_location_text': projectLocationText,
-        'mapped_address': mappedAddress,
-        'barangay_name': barangayName,
-        'polygon_points': polygonPoints.map((point) => point.toJson()).toList(),
-        'idempotency_key': idempotencyKey,
-      }),
-    );
+    final response = await http
+        .post(
+          Uri.parse('$baseUrl/api/v1/applications'),
+          headers: _headers(idempotencyKey: idempotencyKey),
+          body: jsonEncode({
+            'project_name': projectName,
+            'building_type': buildingType,
+            'project_location_text': projectLocationText,
+            'mapped_address': mappedAddress,
+            'barangay_name': barangayName,
+            'polygon_points':
+                polygonPoints.map((point) => point.toJson()).toList(),
+            'idempotency_key': idempotencyKey,
+          }),
+        )
+        .timeout(_requestTimeout);
     final data = _decode(response);
     return ApplicationSummary.fromJson(
         Map<String, dynamic>.from(data['application'] as Map));
@@ -113,7 +128,8 @@ class ApiClient {
     );
     request.headers.addAll(_headers(json: false));
     request.files.add(await http.MultipartFile.fromPath('attachment', path));
-    final response = await http.Response.fromStream(await request.send());
+    final streamResponse = await request.send().timeout(_requestTimeout);
+    final response = await http.Response.fromStream(streamResponse);
     _decode(response);
   }
 

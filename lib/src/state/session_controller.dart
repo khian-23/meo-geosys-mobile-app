@@ -87,6 +87,8 @@ class _LocalStore {
   }
 }
 
+enum AuthRequestType { login, register }
+
 // ---------------------------------------------------------------------------
 // SessionController
 // ---------------------------------------------------------------------------
@@ -118,12 +120,16 @@ class SessionController extends ChangeNotifier {
   String? token;
   Map<String, dynamic>? profile;
   bool isBusy = false;
+  AuthRequestType? _activeAuthRequest;
 
   // When true the session is backed by local storage, not the remote API.
   bool get isLocalMode => _localMode;
   bool _localMode = false;
 
   bool get isAuthenticated => token != null && token!.isNotEmpty;
+  bool get isLoginBusy => isBusy && _activeAuthRequest == AuthRequestType.login;
+  bool get isRegisterBusy =>
+      isBusy && _activeAuthRequest == AuthRequestType.register;
 
   // -------------------------------------------------------------------------
   // Restore on startup
@@ -162,6 +168,7 @@ class SessionController extends ChangeNotifier {
   // -------------------------------------------------------------------------
   Future<void> login(String email, String password) async {
     isBusy = true;
+    _activeAuthRequest = AuthRequestType.login;
     notifyListeners();
     try {
       // Try remote first.
@@ -180,6 +187,7 @@ class SessionController extends ChangeNotifier {
       }
     } finally {
       isBusy = false;
+      _activeAuthRequest = null;
       notifyListeners();
     }
   }
@@ -189,6 +197,7 @@ class SessionController extends ChangeNotifier {
   // -------------------------------------------------------------------------
   Future<void> register(Map<String, dynamic> payload) async {
     isBusy = true;
+    _activeAuthRequest = AuthRequestType.register;
     notifyListeners();
     try {
       try {
@@ -205,6 +214,7 @@ class SessionController extends ChangeNotifier {
       }
     } finally {
       isBusy = false;
+      _activeAuthRequest = null;
       notifyListeners();
     }
   }

@@ -105,7 +105,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
           const SizedBox(height: 20),
           FilledButton(
             onPressed: session.isBusy ? null : _submit,
-            child: Text(session.isBusy ? 'Creating account...' : 'Register'),
+            child: Text(
+                session.isRegisterBusy ? 'Creating account...' : 'Register'),
           ),
         ],
       ),

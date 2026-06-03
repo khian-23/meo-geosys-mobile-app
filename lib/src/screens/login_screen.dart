@@ -72,10 +72,13 @@ class _LoginScreenState extends State<LoginScreen> {
                   const SizedBox(height: 20),
                   FilledButton(
                     onPressed: session.isBusy ? null : _submit,
-                    child: Text(session.isBusy ? 'Logging in...' : 'Login'),
+                    child:
+                        Text(session.isLoginBusy ? 'Logging in...' : 'Login'),
                   ),
                   TextButton(
-                    onPressed: () => Navigator.pushNamed(context, '/register'),
+                    onPressed: session.isBusy
+                        ? null
+                        : () => Navigator.pushNamed(context, '/register'),
                     child: const Text('Create an account'),
                   ),
                 ],

@@ -37,7 +37,7 @@ class _NewApplicationScreenState extends State<NewApplicationScreen> {
   }
 
   Future<void> _pickFiles() async {
-    final result = await FilePicker.platform.pickFiles(allowMultiple: true);
+    final result = await FilePicker.pickFiles();
     if (result != null) {
       setState(() {
         _attachments
