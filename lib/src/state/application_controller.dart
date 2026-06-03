@@ -1,13 +1,11 @@
 import 'dart:convert';
 import 'dart:math';
 
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/application_summary.dart';
 import '../models/polygon_point.dart';
-import '../services/api_client.dart';
 
 class ApplicationController extends ChangeNotifier {
   static const _localApplicationsKey = 'mobile_local_applications';
@@ -16,22 +14,7 @@ class ApplicationController extends ChangeNotifier {
   bool isLoading = false;
   String? error;
 
-  // -----------------------------------------------------------------------
-  // Load from remote API.  Not called in local / offline mode.
-  // -----------------------------------------------------------------------
-  Future<void> load(ApiClient api) async {
-    isLoading = true;
-    error = null;
-    notifyListeners();
-    try {
-      applications = await api.fetchApplications();
-    } catch (e) {
-      error = e.toString();
-    }
-    isLoading = false;
-    notifyListeners();
-  }
-
+  // Load all saved applications from device storage.
   Future<void> loadLocal() async {
     isLoading = true;
     error = null;
@@ -50,68 +33,14 @@ class ApplicationController extends ChangeNotifier {
       applications = await _readLocalApplications();
       notifyListeners();
     }
-    for (final application in applications) {
-      if (application.applicationId == applicationId) return application;
+    for (final app in applications) {
+      if (app.applicationId == applicationId) return app;
     }
     return null;
   }
 
-  // -----------------------------------------------------------------------
-  // Submit — tries remote API; on network failure falls back to a local
-  // in-memory record so the user can still test the full flow.
-  // -----------------------------------------------------------------------
+  // Create and persist a new application entirely on-device.
   Future<ApplicationSummary> submit({
-    required ApiClient api,
-    required String projectName,
-    required String buildingType,
-    required String locationText,
-    required List<PolygonPoint> polygonPoints,
-    String? mappedAddress,
-    String? barangayName,
-    // FIX: pass localMode flag from SessionController
-    bool localMode = false,
-  }) async {
-    if (localMode) {
-      return _localSubmit(
-        projectName: projectName,
-        buildingType: buildingType,
-        locationText: locationText,
-        polygonPoints: polygonPoints,
-        mappedAddress: mappedAddress,
-        barangayName: barangayName,
-      );
-    }
-
-    final key =
-        '${DateTime.now().millisecondsSinceEpoch}-${Random().nextInt(999999)}';
-    try {
-      final created = await api.createApplication(
-        projectName: projectName,
-        buildingType: buildingType,
-        projectLocationText: locationText,
-        polygonPoints: polygonPoints,
-        idempotencyKey: key,
-        mappedAddress: mappedAddress,
-        barangayName: barangayName,
-      );
-      applications = [created, ...applications];
-      notifyListeners();
-      return created;
-    } catch (e) {
-      // Network error — save locally so the user doesn't lose their work.
-      if (e is ApiException) rethrow;
-      return _localSubmit(
-        projectName: projectName,
-        buildingType: buildingType,
-        locationText: locationText,
-        polygonPoints: polygonPoints,
-        mappedAddress: mappedAddress,
-        barangayName: barangayName,
-      );
-    }
-  }
-
-  Future<ApplicationSummary> _localSubmit({
     required String projectName,
     required String buildingType,
     required String locationText,
@@ -125,9 +54,9 @@ class ApplicationController extends ChangeNotifier {
               app.applicationId > highest ? app.applicationId : highest,
         ) +
         1;
-    final refNum = 'LOCAL-${id.toString().padLeft(4, '0')}';
+    final refNum = 'GEO-${id.toString().padLeft(4, '0')}';
 
-    // Compute centroid
+    // Centroid
     double lat = 0, lng = 0;
     for (final p in polygonPoints) {
       lat += p.latitude;
@@ -138,16 +67,27 @@ class ApplicationController extends ChangeNotifier {
       lng /= polygonPoints.length;
     }
 
-    // Rough lot area via shoelace formula (in square metres)
+    // Shoelace formula for polygon area in square metres.
+    // Uses the spherical excess approximation: 1° ≈ 111 320 m along a meridian,
+    // and longitude degrees are scaled by cos(lat) to account for convergence.
     double area = 0;
     final n = polygonPoints.length;
-    for (var i = 0; i < n; i++) {
-      final j = (i + 1) % n;
-      area += polygonPoints[i].latitude * polygonPoints[j].longitude;
-      area -= polygonPoints[j].latitude * polygonPoints[i].longitude;
+    if (n >= 3) {
+      for (var i = 0; i < n; i++) {
+        final j = (i + 1) % n;
+        final latI = polygonPoints[i].latitude * (pi / 180);
+        final latJ = polygonPoints[j].latitude * (pi / 180);
+        final lngI = polygonPoints[i].longitude * (pi / 180);
+        final lngJ = polygonPoints[j].longitude * (pi / 180);
+        // Approximate: project to local metres then apply shoelace
+        area += lngI * latJ;
+        area -= lngJ * latI;
+      }
+      // Convert from steradians (radians²) → metres²
+      // R² where R = 6 371 000 m
+      const R = 6371000.0;
+      area = (area.abs() / 2) * R * R;
     }
-    // 1 degree lat ≈ 111 km; rough conversion only
-    final areaSqm = (area.abs() / 2) * 111000 * 111000;
 
     final created = ApplicationSummary(
       applicationId: id,
@@ -157,12 +97,12 @@ class ApplicationController extends ChangeNotifier {
       projectLocationText: locationText,
       latitude: lat,
       longitude: lng,
-      status: 'pending',
+      status: 'recorded',
       submittedAt: DateTime.now().toIso8601String(),
       polygonPoints: polygonPoints,
       barangayName: barangayName,
       mappedAddress: mappedAddress,
-      lotAreaSqm: areaSqm > 0 ? areaSqm : null,
+      lotAreaSqm: area > 0 ? double.parse(area.toStringAsFixed(2)) : null,
     );
 
     applications = [created, ...applications];
@@ -171,23 +111,10 @@ class ApplicationController extends ChangeNotifier {
     return created;
   }
 
-  Future<void> uploadAttachments({
-    required ApiClient api,
-    required int applicationId,
-    required List<PlatformFile> files,
-    bool localMode = false,
-  }) async {
-    if (localMode) return; // silently skip uploads in offline mode
-    for (final file in files) {
-      await api.uploadAttachment(applicationId, file);
-    }
-  }
-
   Future<List<ApplicationSummary>> _readLocalApplications() async {
     final prefs = await SharedPreferences.getInstance();
     final raw = prefs.getString(_localApplicationsKey);
     if (raw == null || raw.isEmpty) return [];
-
     final decoded = jsonDecode(raw) as List<dynamic>;
     return decoded
         .map((item) =>
@@ -195,13 +122,11 @@ class ApplicationController extends ChangeNotifier {
         .toList();
   }
 
-  Future<void> _writeLocalApplications(
-      List<ApplicationSummary> applications) async {
+  Future<void> _writeLocalApplications(List<ApplicationSummary> apps) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(
       _localApplicationsKey,
-      jsonEncode(
-          applications.map((application) => application.toJson()).toList()),
+      jsonEncode(apps.map((a) => a.toJson()).toList()),
     );
   }
 }

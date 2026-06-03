@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../state/application_controller.dart';
-import '../state/session_controller.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -16,128 +15,93 @@ class _DashboardScreenState extends State<DashboardScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final session = context.read<SessionController>();
-      // Only try to load remote applications when connected to the real API.
-      if (session.isLocalMode) {
-        context.read<ApplicationController>().loadLocal();
-      } else {
-        context.read<ApplicationController>().load(session.api);
-      }
+      context.read<ApplicationController>().loadLocal();
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    final session = context.watch<SessionController>();
     final apps = context.watch<ApplicationController>();
-    final name = session.profile?['first_name']?.toString() ?? 'Client';
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('Welcome, $name'),
-        actions: [
-          IconButton(
-            onPressed: () => Navigator.pushNamed(context, '/profile'),
-            icon: const Icon(Icons.person_outline),
-          ),
-        ],
+        title: const Text('MEO GeoSys'),
+        centerTitle: true,
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => Navigator.pushNamed(context, '/new-application'),
+        onPressed: () => Navigator.pushNamed(context, '/new-application')
+            .then((_) => context.read<ApplicationController>().loadLocal()),
         icon: const Icon(Icons.add_location_alt_outlined),
-        label: const Text('New application'),
+        label: const Text('New Record'),
       ),
       body: RefreshIndicator(
-        onRefresh: () =>
-            session.isLocalMode ? apps.loadLocal() : apps.load(session.api),
-        child: ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            // FIX: Show an offline-mode banner so the user knows
-            // the backend is not connected.
-            if (session.isLocalMode)
-              Container(
-                margin: const EdgeInsets.only(bottom: 12),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                decoration: BoxDecoration(
-                  color: Colors.orange.shade50,
-                  border: Border.all(color: Colors.orange.shade300),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.wifi_off,
-                        size: 18, color: Colors.orange.shade700),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        'Running in offline mode — '
-                        'data is stored on this device only. '
-                        'Connect to the server to sync.',
-                        style: TextStyle(
-                            fontSize: 13, color: Colors.orange.shade800),
+        onRefresh: () => context.read<ApplicationController>().loadLocal(),
+        child: apps.isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : apps.applications.isEmpty
+                ? const Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(32),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.map_outlined,
+                              size: 64, color: Colors.grey),
+                          SizedBox(height: 16),
+                          Text(
+                            'No records yet.\nTap "+ New Record" to capture lot corners.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(color: Colors.grey, fontSize: 16),
+                          ),
+                        ],
                       ),
                     ),
-                  ],
-                ),
-              ),
-            const Card(
-              child: Padding(
-                padding: EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Corner capture flow',
-                        style: TextStyle(fontWeight: FontWeight.bold)),
-                    SizedBox(height: 8),
-                    Text('Walk to every lot corner, record the coordinate, '
-                        'review the polygon, then submit.'),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            if (!session.isLocalMode && apps.isLoading)
-              const Center(
-                child: Padding(
-                  padding: EdgeInsets.all(24),
-                  child: CircularProgressIndicator(),
-                ),
-              ),
-            if (!session.isLocalMode && apps.error != null)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: Text(apps.error!,
-                    style: const TextStyle(color: Colors.red)),
-              ),
-            if (session.isLocalMode && apps.applications.isEmpty)
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 24),
-                child: Center(
-                  child: Text(
-                    'No applications yet.\nTap "+ New application" to get started.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: Colors.grey),
+                  )
+                : ListView.builder(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 100),
+                    itemCount: apps.applications.length,
+                    itemBuilder: (context, index) {
+                      final app = apps.applications[index];
+                      return Card(
+                        margin: const EdgeInsets.only(bottom: 10),
+                        child: ListTile(
+                          leading: CircleAvatar(
+                            backgroundColor:
+                                Theme.of(context).colorScheme.primary,
+                            foregroundColor: Colors.white,
+                            child: Text('${index + 1}'),
+                          ),
+                          title: Text(
+                            app.projectName.isEmpty
+                                ? app.referenceNumber
+                                : app.projectName,
+                            style: const TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                          subtitle: Text(
+                            '${app.referenceNumber}  •  '
+                            '${app.polygonPoints.length} corners'
+                            '${app.lotAreaSqm != null ? '  •  ${_formatArea(app.lotAreaSqm!)}' : ''}',
+                          ),
+                          trailing: const Icon(Icons.chevron_right),
+                          onTap: () => Navigator.pushNamed(
+                            context,
+                            '/application-detail',
+                            arguments: app.applicationId,
+                          ).then((_) => context
+                              .read<ApplicationController>()
+                              .loadLocal()),
+                        ),
+                      );
+                    },
                   ),
-                ),
-              ),
-            ...apps.applications.map(
-              (app) => Card(
-                child: ListTile(
-                  title: Text(app.projectName),
-                  subtitle: Text(
-                      '${app.referenceNumber} • ${app.status.toUpperCase()}'),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () => Navigator.pushNamed(
-                      context, '/application-detail',
-                      arguments: app.applicationId),
-                ),
-              ),
-            ),
-          ],
-        ),
       ),
     );
+  }
+
+  String _formatArea(double sqm) {
+    if (sqm >= 10000) {
+      return '${(sqm / 10000).toStringAsFixed(4)} ha';
+    }
+    return '${sqm.toStringAsFixed(2)} m²';
   }
 }

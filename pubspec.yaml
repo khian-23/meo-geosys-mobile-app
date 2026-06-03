@@ -1,7 +1,7 @@
 name: meo_geosys_mobile
-description: MEO GeoSys mobile client for polygon-based application capture.
+description: MEO GeoSys — offline lot-corner coordinate capture.
 publish_to: "none"
-version: 0.1.0+1
+version: 0.2.0+1
 
 environment:
   sdk: ">=3.3.0 <4.0.0"
@@ -11,12 +11,10 @@ dependencies:
     sdk: flutter
   cupertino_icons: ^1.0.8
   provider: ^6.1.2
-  http: ^1.2.1
   shared_preferences: ^2.2.3
   flutter_map: ^7.0.2
   latlong2: ^0.9.1
   geolocator: ^11.0.0
-  file_picker: ^12.0.0-beta.5
 
 dev_dependencies:
   flutter_test:

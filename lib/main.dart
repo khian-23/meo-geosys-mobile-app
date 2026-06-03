@@ -3,7 +3,6 @@ import 'package:provider/provider.dart';
 
 import 'src/app.dart';
 import 'src/state/application_controller.dart';
-import 'src/state/session_controller.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -26,15 +25,9 @@ Future<void> main() async {
     );
   };
 
-  final session = SessionController();
-  await session.restoreSession();
-
   runApp(
-    MultiProvider(
-      providers: [
-        ChangeNotifierProvider.value(value: session),
-        ChangeNotifierProvider(create: (_) => ApplicationController()),
-      ],
+    ChangeNotifierProvider(
+      create: (_) => ApplicationController(),
       child: const MeoMobileApp(),
     ),
   );

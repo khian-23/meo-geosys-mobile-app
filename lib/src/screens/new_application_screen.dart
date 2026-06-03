@@ -1,11 +1,8 @@
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../models/polygon_point.dart';
-import '../services/api_client.dart';
 import '../state/application_controller.dart';
-import '../state/session_controller.dart';
 import '../widgets/polygon_map_picker.dart';
 
 class NewApplicationScreen extends StatefulWidget {
@@ -21,7 +18,6 @@ class _NewApplicationScreenState extends State<NewApplicationScreen> {
   final _locationText = TextEditingController();
   final _mappedAddress = TextEditingController();
   final _barangayName = TextEditingController();
-  final List<PlatformFile> _attachments = [];
   List<PolygonPoint> _points = [];
   bool _isSubmitting = false;
   String? _error;
@@ -36,20 +32,10 @@ class _NewApplicationScreenState extends State<NewApplicationScreen> {
     super.dispose();
   }
 
-  Future<void> _pickFiles() async {
-    final result = await FilePicker.pickFiles();
-    if (result != null) {
-      setState(() {
-        _attachments
-          ..clear()
-          ..addAll(result.files.where((f) => f.path != null));
-      });
-    }
-  }
-
   Future<void> _submit() async {
     if (_points.length < 3) {
-      setState(() => _error = 'At least three corner points are required.');
+      setState(() =>
+          _error = 'At least 3 corner points are required to define a lot.');
       return;
     }
 
@@ -58,39 +44,28 @@ class _NewApplicationScreenState extends State<NewApplicationScreen> {
       _isSubmitting = true;
     });
 
-    final session = context.read<SessionController>();
-    final apps = context.read<ApplicationController>();
-
     try {
-      final created = await apps.submit(
-        api: session.api,
-        projectName: _projectName.text.trim(),
-        buildingType: _buildingType.text.trim(),
-        locationText: _locationText.text.trim(),
-        polygonPoints: _points,
-        mappedAddress: _mappedAddress.text.trim().isEmpty
-            ? null
-            : _mappedAddress.text.trim(),
-        barangayName: _barangayName.text.trim().isEmpty
-            ? null
-            : _barangayName.text.trim(),
-        // FIX: pass localMode so the controller skips the network call
-        localMode: session.isLocalMode,
-      );
-
-      if (_attachments.isNotEmpty) {
-        await apps.uploadAttachments(
-          api: session.api,
-          applicationId: created.applicationId,
-          files: _attachments,
-          localMode: session.isLocalMode,
-        );
-      }
+      final created = await context.read<ApplicationController>().submit(
+            projectName: _projectName.text.trim(),
+            buildingType: _buildingType.text.trim(),
+            locationText: _locationText.text.trim(),
+            polygonPoints: _points,
+            mappedAddress: _mappedAddress.text.trim().isEmpty
+                ? null
+                : _mappedAddress.text.trim(),
+            barangayName: _barangayName.text.trim().isEmpty
+                ? null
+                : _barangayName.text.trim(),
+          );
 
       if (!mounted) return;
-      Navigator.pop(context);
-    } on ApiException catch (e) {
-      setState(() => _error = e.message);
+      // Replace the new-application screen with the detail screen so
+      // the user sees their recorded coordinates immediately.
+      Navigator.pushReplacementNamed(
+        context,
+        '/application-detail',
+        arguments: created.applicationId,
+      );
     } catch (e) {
       setState(() => _error = e.toString());
     } finally {
@@ -100,74 +75,103 @@ class _NewApplicationScreenState extends State<NewApplicationScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final session = context.watch<SessionController>();
-
     return Scaffold(
-      appBar: AppBar(title: const Text('New application')),
+      appBar: AppBar(title: const Text('New Lot Record')),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          if (session.isLocalMode)
-            Container(
-              margin: const EdgeInsets.only(bottom: 14),
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-              decoration: BoxDecoration(
-                color: Colors.orange.shade50,
-                border: Border.all(color: Colors.orange.shade300),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Text(
-                'Offline mode — this application will be saved on-device only.',
-                style: TextStyle(fontSize: 13, color: Colors.orange.shade800),
-              ),
+          // ── Project info ──────────────────────────────────────────────
+          _sectionHeader('Project Information'),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _projectName,
+            decoration: const InputDecoration(
+              labelText: 'Project / Lot name',
+              border: OutlineInputBorder(),
             ),
-          TextField(
-              controller: _projectName,
-              decoration: const InputDecoration(labelText: 'Project name')),
+          ),
           const SizedBox(height: 12),
           TextField(
-              controller: _buildingType,
-              decoration: const InputDecoration(labelText: 'Building type')),
+            controller: _buildingType,
+            decoration: const InputDecoration(
+              labelText: 'Building / Land type',
+              border: OutlineInputBorder(),
+            ),
+          ),
           const SizedBox(height: 12),
           TextField(
-              controller: _locationText,
-              decoration:
-                  const InputDecoration(labelText: 'Project location text')),
+            controller: _locationText,
+            decoration: const InputDecoration(
+              labelText: 'Location description',
+              border: OutlineInputBorder(),
+            ),
+          ),
           const SizedBox(height: 12),
           TextField(
-              controller: _mappedAddress,
-              decoration: const InputDecoration(
-                  labelText: 'Mapped address (optional)')),
+            controller: _mappedAddress,
+            decoration: const InputDecoration(
+              labelText: 'Mapped address (optional)',
+              border: OutlineInputBorder(),
+            ),
+          ),
           const SizedBox(height: 12),
           TextField(
-              controller: _barangayName,
-              decoration:
-                  const InputDecoration(labelText: 'Barangay (optional)')),
-          const SizedBox(height: 16),
+            controller: _barangayName,
+            decoration: const InputDecoration(
+              labelText: 'Barangay (optional)',
+              border: OutlineInputBorder(),
+            ),
+          ),
+          const SizedBox(height: 20),
+
+          // ── Map / corner capture ──────────────────────────────────────
+          _sectionHeader('Capture Lot Corners'),
+          const SizedBox(height: 8),
           PolygonMapPicker(
             points: _points,
             onChanged: (pts) => setState(() => _points = pts),
           ),
-          const SizedBox(height: 16),
-          OutlinedButton.icon(
-            onPressed: _pickFiles,
-            icon: const Icon(Icons.attach_file),
-            label: Text(_attachments.isEmpty
-                ? 'Attach supporting files'
-                : '${_attachments.length} file(s) selected'),
-          ),
+
+          // ── Error & submit ────────────────────────────────────────────
           if (_error != null) ...[
             const SizedBox(height: 12),
-            Text(_error!, style: const TextStyle(color: Colors.red)),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.red.shade50,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.red.shade300),
+              ),
+              child:
+                  Text(_error!, style: TextStyle(color: Colors.red.shade800)),
+            ),
           ],
           const SizedBox(height: 20),
           FilledButton.icon(
             onPressed: _isSubmitting ? null : _submit,
-            icon: const Icon(Icons.send_outlined),
-            label: Text(_isSubmitting ? 'Submitting…' : 'Submit application'),
+            icon: _isSubmitting
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                        strokeWidth: 2, color: Colors.white),
+                  )
+                : const Icon(Icons.save_outlined),
+            label: Text(_isSubmitting ? 'Saving…' : 'Save & View Coordinates'),
           ),
+          const SizedBox(height: 32),
         ],
       ),
+    );
+  }
+
+  Widget _sectionHeader(String title) {
+    return Text(
+      title,
+      style: Theme.of(context)
+          .textTheme
+          .titleMedium
+          ?.copyWith(fontWeight: FontWeight.bold),
     );
   }
 }
