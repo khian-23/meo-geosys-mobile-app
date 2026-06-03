@@ -31,9 +31,27 @@ class ApplicationSummary {
   final String? mappedAddress;
   final double? lotAreaSqm;
 
+  Map<String, dynamic> toJson() => {
+        'application_id': applicationId,
+        'reference_number': referenceNumber,
+        'project_name': projectName,
+        'building_type': buildingType,
+        'project_location_text': projectLocationText,
+        'latitude': latitude,
+        'longitude': longitude,
+        'status': status,
+        'submitted_at': submittedAt,
+        'polygon_coordinates':
+            polygonPoints.map((point) => point.toJson()).toList(),
+        'barangay_name': barangayName,
+        'mapped_address': mappedAddress,
+        'lot_area_sqm': lotAreaSqm,
+      };
+
   factory ApplicationSummary.fromJson(Map<String, dynamic> json) {
     final polygon = (json['polygon_coordinates'] as List<dynamic>? ?? [])
-        .map((point) => PolygonPoint.fromJson(Map<String, dynamic>.from(point as Map)))
+        .map((point) =>
+            PolygonPoint.fromJson(Map<String, dynamic>.from(point as Map)))
         .toList();
 
     return ApplicationSummary(

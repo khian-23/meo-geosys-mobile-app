@@ -16,6 +16,13 @@ class _LoginScreenState extends State<LoginScreen> {
   final _password = TextEditingController();
   String? _error;
 
+  @override
+  void dispose() {
+    _email.dispose();
+    _password.dispose();
+    super.dispose();
+  }
+
   Future<void> _submit() async {
     final session = context.read<SessionController>();
     setState(() => _error = null);
@@ -43,11 +50,15 @@ class _LoginScreenState extends State<LoginScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Text('MEO GeoSys Mobile', style: Theme.of(context).textTheme.headlineMedium),
+                  Text('MEO GeoSys Mobile',
+                      style: Theme.of(context).textTheme.headlineMedium),
                   const SizedBox(height: 12),
-                  const Text('Log in to capture each lot corner and submit your application.'),
+                  const Text(
+                      'Log in to capture each lot corner and submit your application.'),
                   const SizedBox(height: 24),
-                  TextField(controller: _email, decoration: const InputDecoration(labelText: 'Email')),
+                  TextField(
+                      controller: _email,
+                      decoration: const InputDecoration(labelText: 'Email')),
                   const SizedBox(height: 12),
                   TextField(
                     controller: _password,

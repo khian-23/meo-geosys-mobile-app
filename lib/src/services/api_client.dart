@@ -14,9 +14,15 @@ class ApiClient {
 
   Map<String, String> _headers({bool json = true, String? idempotencyKey}) {
     final headers = <String, String>{};
-    if (json) headers['Content-Type'] = 'application/json';
-    if (token != null && token!.isNotEmpty) headers['Authorization'] = 'Bearer $token';
-    if (idempotencyKey != null && idempotencyKey.isNotEmpty) headers['X-Idempotency-Key'] = idempotencyKey;
+    if (json) {
+      headers['Content-Type'] = 'application/json';
+    }
+    if (token != null && token!.isNotEmpty) {
+      headers['Authorization'] = 'Bearer $token';
+    }
+    if (idempotencyKey != null && idempotencyKey.isNotEmpty) {
+      headers['X-Idempotency-Key'] = idempotencyKey;
+    }
     return headers;
   }
 
@@ -53,7 +59,8 @@ class ApiClient {
     );
     final data = _decode(response);
     return (data['applications'] as List<dynamic>? ?? [])
-        .map((item) => ApplicationSummary.fromJson(Map<String, dynamic>.from(item as Map)))
+        .map((item) =>
+            ApplicationSummary.fromJson(Map<String, dynamic>.from(item as Map)))
         .toList();
   }
 
@@ -63,7 +70,8 @@ class ApiClient {
       headers: _headers(json: false),
     );
     final data = _decode(response);
-    return ApplicationSummary.fromJson(Map<String, dynamic>.from(data['application'] as Map));
+    return ApplicationSummary.fromJson(
+        Map<String, dynamic>.from(data['application'] as Map));
   }
 
   Future<ApplicationSummary> createApplication({
@@ -89,22 +97,41 @@ class ApiClient {
       }),
     );
     final data = _decode(response);
-    return ApplicationSummary.fromJson(Map<String, dynamic>.from(data['application'] as Map));
+    return ApplicationSummary.fromJson(
+        Map<String, dynamic>.from(data['application'] as Map));
   }
 
   Future<void> uploadAttachment(int applicationId, PlatformFile file) async {
+    final path = file.path;
+    if (path == null || path.isEmpty) {
+      throw ApiException('Selected file is not available for upload.');
+    }
+
     final request = http.MultipartRequest(
       'POST',
       Uri.parse('$baseUrl/api/v1/applications/$applicationId/attachments'),
     );
     request.headers.addAll(_headers(json: false));
-    request.files.add(await http.MultipartFile.fromPath('attachment', file.path!));
+    request.files.add(await http.MultipartFile.fromPath('attachment', path));
     final response = await http.Response.fromStream(await request.send());
     _decode(response);
   }
 
   Map<String, dynamic> _decode(http.Response response) {
-    final payload = jsonDecode(response.body) as Map<String, dynamic>;
+    final Map<String, dynamic> payload;
+    try {
+      final decoded = jsonDecode(response.body);
+      if (decoded is! Map<String, dynamic>) {
+        throw const FormatException('Expected a JSON object.');
+      }
+      payload = decoded;
+    } on FormatException {
+      throw ApiException(
+        response.statusCode >= 400
+            ? 'Server returned an invalid error response.'
+            : 'Server returned an invalid response.',
+      );
+    }
     if (response.statusCode >= 400 || payload['success'] != true) {
       throw ApiException(payload['message']?.toString() ?? 'Request failed.');
     }

@@ -16,16 +16,27 @@ class ProfileScreen extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          ListTile(title: const Text('Name'), subtitle: Text('${profile['first_name'] ?? ''} ${profile['last_name'] ?? ''}'.trim())),
-          ListTile(title: const Text('Email'), subtitle: Text(profile['email']?.toString() ?? '')),
-          ListTile(title: const Text('Phone'), subtitle: Text(profile['phone']?.toString() ?? '')),
-          ListTile(title: const Text('Address'), subtitle: Text(profile['address']?.toString() ?? '')),
+          ListTile(
+              title: const Text('Name'),
+              subtitle: Text(
+                  '${profile['first_name'] ?? ''} ${profile['last_name'] ?? ''}'
+                      .trim())),
+          ListTile(
+              title: const Text('Email'),
+              subtitle: Text(profile['email']?.toString() ?? '')),
+          ListTile(
+              title: const Text('Phone'),
+              subtitle: Text(profile['phone']?.toString() ?? '')),
+          ListTile(
+              title: const Text('Address'),
+              subtitle: Text(profile['address']?.toString() ?? '')),
           const SizedBox(height: 24),
           FilledButton(
             onPressed: () async {
               await session.logout();
               if (context.mounted) {
-                Navigator.pushNamedAndRemoveUntil(context, '/login', (_) => false);
+                Navigator.pushNamedAndRemoveUntil(
+                    context, '/login', (_) => false);
               }
             },
             child: const Text('Logout'),

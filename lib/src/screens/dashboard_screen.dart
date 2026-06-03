@@ -17,7 +17,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final session = context.read<SessionController>();
-      context.read<ApplicationController>().load(session.api);
+      // Only try to load remote applications when connected to the real API.
+      if (session.isLocalMode) {
+        context.read<ApplicationController>().loadLocal();
+      } else {
+        context.read<ApplicationController>().load(session.api);
+      }
     });
   }
 
@@ -43,38 +48,79 @@ class _DashboardScreenState extends State<DashboardScreen> {
         label: const Text('New application'),
       ),
       body: RefreshIndicator(
-        onRefresh: () => apps.load(session.api),
+        onRefresh: () =>
+            session.isLocalMode ? apps.loadLocal() : apps.load(session.api),
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            Card(
+            // FIX: Show an offline-mode banner so the user knows
+            // the backend is not connected.
+            if (session.isLocalMode)
+              Container(
+                margin: const EdgeInsets.only(bottom: 12),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                decoration: BoxDecoration(
+                  color: Colors.orange.shade50,
+                  border: Border.all(color: Colors.orange.shade300),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.wifi_off,
+                        size: 18, color: Colors.orange.shade700),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'Running in offline mode — '
+                        'data is stored on this device only. '
+                        'Connect to the server to sync.',
+                        style: TextStyle(
+                            fontSize: 13, color: Colors.orange.shade800),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            const Card(
               child: Padding(
-                padding: const EdgeInsets.all(16),
+                padding: EdgeInsets.all(16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  children: const [
+                  children: [
                     Text('Corner capture flow',
                         style: TextStyle(fontWeight: FontWeight.bold)),
                     SizedBox(height: 8),
-                    Text(
-                        'Walk to every lot corner, record the coordinate, review the polygon, then submit.'),
+                    Text('Walk to every lot corner, record the coordinate, '
+                        'review the polygon, then submit.'),
                   ],
                 ),
               ),
             ),
             const SizedBox(height: 16),
-            if (apps.isLoading)
+            if (!session.isLocalMode && apps.isLoading)
               const Center(
                 child: Padding(
                   padding: EdgeInsets.all(24),
                   child: CircularProgressIndicator(),
                 ),
               ),
-            if (apps.error != null)
+            if (!session.isLocalMode && apps.error != null)
               Padding(
                 padding: const EdgeInsets.only(bottom: 12),
                 child: Text(apps.error!,
                     style: const TextStyle(color: Colors.red)),
+              ),
+            if (session.isLocalMode && apps.applications.isEmpty)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 24),
+                child: Center(
+                  child: Text(
+                    'No applications yet.\nTap "+ New application" to get started.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: Colors.grey),
+                  ),
+                ),
               ),
             ...apps.applications.map(
               (app) => Card(

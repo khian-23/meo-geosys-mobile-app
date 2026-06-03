@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import 'screens/application_detail_screen.dart';
 import 'screens/dashboard_screen.dart';
@@ -6,12 +7,15 @@ import 'screens/login_screen.dart';
 import 'screens/new_application_screen.dart';
 import 'screens/profile_screen.dart';
 import 'screens/register_screen.dart';
+import 'state/session_controller.dart';
 
 class MeoMobileApp extends StatelessWidget {
   const MeoMobileApp({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final session = context.watch<SessionController>();
+
     return MaterialApp(
       title: 'MEO GeoSys Mobile',
       debugShowCheckedModeBanner: false,
@@ -34,12 +38,15 @@ class MeoMobileApp extends StatelessWidget {
         if (settings.name == '/application-detail') {
           final applicationId = settings.arguments as int;
           return MaterialPageRoute(
-            builder: (_) => ApplicationDetailScreen(applicationId: applicationId),
+            builder: (_) =>
+                ApplicationDetailScreen(applicationId: applicationId),
           );
         }
         return null;
       },
-      home: const LoginScreen(),
+      home: session.isAuthenticated
+          ? const DashboardScreen()
+          : const LoginScreen(),
     );
   }
 }

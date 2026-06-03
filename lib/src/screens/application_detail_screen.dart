@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../models/application_summary.dart';
+import '../state/application_controller.dart';
 import '../state/session_controller.dart';
 
 class ApplicationDetailScreen extends StatefulWidget {
@@ -10,7 +11,8 @@ class ApplicationDetailScreen extends StatefulWidget {
   final int applicationId;
 
   @override
-  State<ApplicationDetailScreen> createState() => _ApplicationDetailScreenState();
+  State<ApplicationDetailScreen> createState() =>
+      _ApplicationDetailScreenState();
 }
 
 class _ApplicationDetailScreenState extends State<ApplicationDetailScreen> {
@@ -26,8 +28,13 @@ class _ApplicationDetailScreenState extends State<ApplicationDetailScreen> {
 
   Future<void> _load() async {
     final session = context.read<SessionController>();
+    final applications = context.read<ApplicationController>();
     try {
-      _application = await session.api.fetchApplication(widget.applicationId);
+      if (session.isLocalMode) {
+        _application = await applications.findLocalById(widget.applicationId);
+      } else {
+        _application = await session.api.fetchApplication(widget.applicationId);
+      }
     } catch (e) {
       _error = e.toString();
     }
@@ -48,15 +55,32 @@ class _ApplicationDetailScreenState extends State<ApplicationDetailScreen> {
                   : ListView(
                       padding: const EdgeInsets.all(16),
                       children: [
-                        ListTile(title: const Text('Reference number'), subtitle: Text(app.referenceNumber)),
-                        ListTile(title: const Text('Status'), subtitle: Text(app.status)),
-                        ListTile(title: const Text('Project name'), subtitle: Text(app.projectName)),
-                        ListTile(title: const Text('Building type'), subtitle: Text(app.buildingType)),
-                        ListTile(title: const Text('Project location'), subtitle: Text(app.projectLocationText)),
-                        ListTile(title: const Text('Centroid'), subtitle: Text('${app.latitude}, ${app.longitude}')),
-                        ListTile(title: const Text('Corners recorded'), subtitle: Text('${app.polygonPoints.length}')),
+                        ListTile(
+                            title: const Text('Reference number'),
+                            subtitle: Text(app.referenceNumber)),
+                        ListTile(
+                            title: const Text('Status'),
+                            subtitle: Text(app.status)),
+                        ListTile(
+                            title: const Text('Project name'),
+                            subtitle: Text(app.projectName)),
+                        ListTile(
+                            title: const Text('Building type'),
+                            subtitle: Text(app.buildingType)),
+                        ListTile(
+                            title: const Text('Project location'),
+                            subtitle: Text(app.projectLocationText)),
+                        ListTile(
+                            title: const Text('Centroid'),
+                            subtitle:
+                                Text('${app.latitude}, ${app.longitude}')),
+                        ListTile(
+                            title: const Text('Corners recorded'),
+                            subtitle: Text('${app.polygonPoints.length}')),
                         if (app.lotAreaSqm != null)
-                          ListTile(title: const Text('Estimated lot area'), subtitle: Text('${app.lotAreaSqm} sqm')),
+                          ListTile(
+                              title: const Text('Estimated lot area'),
+                              subtitle: Text('${app.lotAreaSqm} sqm')),
                       ],
                     ),
     );

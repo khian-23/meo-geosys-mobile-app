@@ -22,6 +22,19 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _password = TextEditingController();
   String? _error;
 
+  @override
+  void dispose() {
+    _firstName.dispose();
+    _middleName.dispose();
+    _lastName.dispose();
+    _email.dispose();
+    _phone.dispose();
+    _address.dispose();
+    _barangay.dispose();
+    _password.dispose();
+    super.dispose();
+  }
+
   Future<void> _submit() async {
     final session = context.read<SessionController>();
     setState(() => _error = null);
@@ -53,21 +66,38 @@ class _RegisterScreenState extends State<RegisterScreen> {
       body: ListView(
         padding: const EdgeInsets.all(24),
         children: [
-          TextField(controller: _firstName, decoration: const InputDecoration(labelText: 'First name')),
+          TextField(
+              controller: _firstName,
+              decoration: const InputDecoration(labelText: 'First name')),
           const SizedBox(height: 12),
-          TextField(controller: _middleName, decoration: const InputDecoration(labelText: 'Middle name')),
+          TextField(
+              controller: _middleName,
+              decoration: const InputDecoration(labelText: 'Middle name')),
           const SizedBox(height: 12),
-          TextField(controller: _lastName, decoration: const InputDecoration(labelText: 'Last name')),
+          TextField(
+              controller: _lastName,
+              decoration: const InputDecoration(labelText: 'Last name')),
           const SizedBox(height: 12),
-          TextField(controller: _email, decoration: const InputDecoration(labelText: 'Email')),
+          TextField(
+              controller: _email,
+              decoration: const InputDecoration(labelText: 'Email')),
           const SizedBox(height: 12),
-          TextField(controller: _phone, decoration: const InputDecoration(labelText: 'Phone')),
+          TextField(
+              controller: _phone,
+              decoration: const InputDecoration(labelText: 'Phone')),
           const SizedBox(height: 12),
-          TextField(controller: _address, decoration: const InputDecoration(labelText: 'Address')),
+          TextField(
+              controller: _address,
+              decoration: const InputDecoration(labelText: 'Address')),
           const SizedBox(height: 12),
-          TextField(controller: _barangay, decoration: const InputDecoration(labelText: 'Barangay')),
+          TextField(
+              controller: _barangay,
+              decoration: const InputDecoration(labelText: 'Barangay')),
           const SizedBox(height: 12),
-          TextField(controller: _password, obscureText: true, decoration: const InputDecoration(labelText: 'Password')),
+          TextField(
+              controller: _password,
+              obscureText: true,
+              decoration: const InputDecoration(labelText: 'Password')),
           if (_error != null) ...[
             const SizedBox(height: 12),
             Text(_error!, style: const TextStyle(color: Colors.red)),
